@@ -1,0 +1,22 @@
+speak:
+  name: Speak to door
+  description: >-
+    Play audio on the door station speaker (two-way talk uplink). Only works
+    while a call is active, so trigger it from a doorbell ring automation.
+  fields:
+    device_id:
+      name: Door station
+      description: The Niko Access door station device to speak to.
+      required: true
+      selector:
+        device:
+          integration: niko_access
+    media:
+      name: Audio source
+      description: >-
+        Any ffmpeg-readable audio (a URL, a local file path, or a TTS-generated
+        media URL). It is transcoded to G.711 u-law and sent to the speaker.
+      required: true
+      example: "media-source://tts/..."
+      selector:
+        text:

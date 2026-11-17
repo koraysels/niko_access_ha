@@ -21,6 +21,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
 )
 from .coordinator import NikoAccessConfigEntry, NikoAccessCoordinator
+from .services import async_setup_services
 
 PLATFORMS = [
     Platform.BINARY_SENSOR,
@@ -56,6 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NikoAccessConfigEntry) -
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_setup_services(hass)
     return True
 
 
