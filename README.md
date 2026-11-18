@@ -22,10 +22,21 @@ through the Niko / Hik-Connect cloud with **local live video**.
 | 📞 Call state | `idle` / `ringing` / `in_call` sensor + a "ringing" binary sensor |
 | 🚪 Open door | one button per enabled lock on the station |
 | 📹 **Live video** | pulled **locally** from the station (H.264 → MJPEG); no admin password or RTSP needed |
+| 🗣️ **Two-way talk** | speak to the door (`niko_access.speak` service) and hear it live (`/api/niko_access/talk/{serial}/listen.wav`); works during a call |
 | 🟢 Connectivity | cloud online/offline diagnostic |
 
-Not included: **two-way talk** (audio) — the media protocol is reverse-engineered
-but the cloud call-bridge step isn't reproduced yet.
+### Two-way talk
+
+Talk runs over the cloud TTS relay (the protocol was already reverse-engineered
+in `cpd7/talk.py`) and only works **while a call is active**, so drive it from a
+ring automation.
+
+- **Speak to the door:** call the `niko_access.speak` service with a `device_id`
+  and `media` (any ffmpeg-readable audio — a URL, file path, or TTS media URL).
+  It's transcoded to G.711 u-law and played on the station speaker.
+- **Hear the door:** play `/api/niko_access/talk/{serial}/listen.wav` (a live WAV
+  stream) from a `media_player`, the dashboard, or a browser. A single talk
+  channel is shared between listening and speaking.
 
 ## Requirements
 

@@ -20,6 +20,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
 )
+from .audio_view import NikoTalkAudioView
 from .coordinator import NikoAccessConfigEntry, NikoAccessCoordinator
 from .services import async_setup_services
 
@@ -58,6 +59,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: NikoAccessConfigEntry) -
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)
+    if not hass.data.get(f"{__name__}_view"):
+        hass.http.register_view(NikoTalkAudioView())
+        hass.data[f"{__name__}_view"] = True
     return True
 
 

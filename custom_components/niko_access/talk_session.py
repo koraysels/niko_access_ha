@@ -93,3 +93,64 @@ class NikoTalkSession:
         if self._talk:
             talk, self._talk = self._talk, None
             await asyncio.get_running_loop().run_in_executor(None, talk.close)
+
+
+class TalkBridge:
+    """Full-duplex talk: one open session, a background reader that fans the
+    door's inbound G.711 u-law out to subscribers, and an uplink to the speaker.
+
+    Inbound audio is raw G.711 u-law (8 kHz mono); subscribers transcode it
+    (e.g. ffmpeg -> WAV) for playback.
+    """
+
+    def __init__(self, client: NikoAccessClient, serial: str) -> None:
+        self._session = NikoTalkSession(client, serial)
+        self._subscribers: set[asyncio.Queue[bytes | None]] = set()
+        self._reader: asyncio.Task | None = None
+        self._lock = asyncio.Lock()
+
+    @property
+    def active(self) -> bool:
+        return self._reader is not None and not self._reader.done()
+
+    async def async_start(self) -> str:
+        async with self._lock:
+            if self.active:
+                return "already running"
+            codec = await self._session.async_start()
+            self._reader = asyncio.create_task(self._read_loop())
+            return codec
+
+    async def _read_loop(self) -> None:
+        try:
+            while True:
+                frame = await self._session.async_read()
+                if frame is None:  # timeout — keep waiting while the call lasts
+                    continue
+                if not frame:  # non-audio control frame
+                    continue
+                for q in list(self._subscribers):
+                    q.put_nowait(frame)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("talk read loop ended: %s", err)
+        finally:
+            for q in list(self._subscribers):
+                q.put_nowait(None)
+
+    def subscribe(self) -> asyncio.Queue[bytes | None]:
+        q: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=256)
+        self._subscribers.add(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue[bytes | None]) -> None:
+        self._subscribers.discard(q)
+
+    async def async_send(self, mulaw: bytes) -> None:
+        await self._session.async_send(mulaw)
+
+    async def async_stop(self) -> None:
+        async with self._lock:
+            if self._reader:
+                self._reader.cancel()
+                self._reader = None
+            await self._session.async_close()

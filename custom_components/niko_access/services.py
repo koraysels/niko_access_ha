@@ -71,8 +71,16 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def _speak(call: ServiceCall) -> None:
         mulaw = await _to_mulaw(hass, call.data[ATTR_MEDIA])
+        bridges = hass.data.get(DOMAIN, {}).get("talk_bridges", {})
         for device_id in call.data["device_id"]:
             coordinator, serial = _coordinator_for_device(hass, device_id)
+            bridge = bridges.get(serial)
+            if bridge is not None and bridge.active:
+                # A listener already holds the talk channel — reuse it (one
+                # channel per station; opening a second would conflict).
+                await bridge.async_send(mulaw)
+                _LOGGER.info("Spoke %d bytes to %s (shared session)", len(mulaw), serial)
+                continue
             session = NikoTalkSession(coordinator.client, serial)
             try:
                 await session.async_start()
